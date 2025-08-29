@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artículos Recientes</title>
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkxlY3RvciBkZSBBcnTDrWN1bG9zIiwKICAic2hvcnRfbmFtZSI6ICJMZWN0b3IiLAogICJkZXNjcmlwdGlvbiI6ICJVbmEgYXBsaWNhY2nDs24gcGFyYSBsZWVyIGFydMOtY3Vsb3MgcmVjaWVudGVzLiIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAidGhlbWVfY29sb3IiOiAiIzREQkE4NyIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImljb24tMTkyeDE5Mi5wbmciLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0sCiAgICAgewogICAgICAic3JjIjogImljb24tNTEyeDUxMi5wbmciLAogICAgICAic2l6ZXMiOiAiNTEyeDUxMiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0KICBdCn0K">
+    <meta name="theme-color" content="#4DBA87">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Lector">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        h1 { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2em; }
+        th, td { border-bottom: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        td a { text-decoration: none; color: inherit; display: flex; align-items: center; }
+        img { width: 80px; height: auto; margin-right: 15px; border-radius: 5px; }
+        tr:hover { background-color: #f1f1f1; cursor: pointer; }
+        .article-detail-container { max-width: 800px; margin: 2em auto; }
+        .article-detail-container img { max-width: 100%; height: auto; display: block; margin-bottom: 1em; }
+        .article-detail-container h1 { text-align: center; }
+        .article-detail-container p { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const articles = ref([]);
+                const selectedArticleId = ref(null);
+
+                const fetchArticles = async () => {
+                    try {
+                        const response = await fetch('articles.json');
+                        const data = await response.json();
+                        articles.value = data.articles;
+                    } catch (error) {
+                        console.error('Error al cargar los artículos:', error);
+                    }
+                };
+
+                const sortedArticles = computed(() => {
+                    if (!articles.value) return [];
+                    // Ordenar por relevance_score descendente
+                    return [...articles.value].sort((a, b) => b.relevance_score - a.relevance_score);
+                });
+
+                const selectArticle = (id) => {
+                    selectedArticleId.value = id;
+                };
+
+                const articleDetail = computed(() => {
+                    return articles.value.find(article => article.id === selectedArticleId.value);
+                });
+
+                const goBack = () => {
+                    selectedArticleId.value = null;
+                };
+
+                onMounted(() => {
+                    fetchArticles();
+                });
+
+                return {
+                    articles,
+                    selectedArticleId,
+                    sortedArticles,
+                    articleDetail,
+                    selectArticle,
+                    goBack,
+                    fetchArticles
+                };
+            },
+            template: `
+                <div v-if="!selectedArticleId">
+                    <h1>Artículos Recientes</h1>
+                    <button @click="fetchArticles">Recargar Artículos</button>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Miniatura y Título</th>
+                                <th>Relevance Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="article in sortedArticles" :key="article.id" @click="selectArticle(article.id)">
+                                <td>
+                                    <a href="#" @click.prevent="selectArticle(article.id)">
+                                        <img :src="article.url_image" :alt="article.title">
+                                        <span>{{ article.title }}</span>
+                                    </a>
+                                </td>
+                                <td>{{ article.relevance_score }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div v-else class="article-detail-container">
+                    <a href="#" @click.prevent="goBack()">Volver a la lista</a>
+                    <h1>{{ articleDetail.title }}</h1>
+                    <img :src="articleDetail.url_image" :alt="articleDetail.title">
+                    <p>{{ articleDetail.content }}</p>
+                </div>
+            `
+        }).mount('#app');
+
+        if ('serviceWorker' in navigator) {
+          const swContent = `
+            const CACHE_NAME = 'articles-reader-cache-v1';
+            const urlsToCache = [
+              '/',
+              'index.html',
+              'articles.json'
+            ];
+
+            self.addEventListener('install', event => {
+              event.waitUntil(
+                caches.open(CACHE_NAME)
+                  .then(cache => {
+                    console.log('Opened cache');
+                    return cache.addAll(urlsToCache);
+                  })
+              );
+            });
+
+            self.addEventListener('fetch', event => {
+              event.respondWith(
+                caches.match(event.request)
+                  .then(response => {
+                    if (response) {
+                      return response;
+                    }
+                    return fetch(event.request);
+                  })
+              );
+            });
+          `;
+          const swBlob = new Blob([swContent], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(swBlob);
+
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register(swUrl).then(registration => {
+              console.log('SW registered: ', registration);
+            }).catch(registrationError => {
+              console.log('SW registration failed: ', registrationError);
+            });
+          });
+        }
+    </script>
+</body>
+</html>
